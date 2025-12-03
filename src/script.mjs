@@ -106,6 +106,18 @@ function validateInputs(params) {
 }
 
 export default {
+  /**
+   * Main execution handler - removes user from AWS Identity Center group
+   * @param {Object} params - Job input parameters
+   * @param {string} params.userName - Username of the user to remove from the group
+   * @param {string} params.identityStoreId - AWS Identity Store ID
+   * @param {string} params.groupId - AWS Identity Center group ID
+   * @param {string} params.region - AWS region
+   * @param {Object} context - Execution context with env, secrets, outputs
+   * @param {string} context.secrets.BASIC_USERNAME - AWS Access Key ID
+   * @param {string} context.secrets.BASIC_PASSWORD - AWS Secret Access Key
+   * @returns {Object} Removal results
+   */
   invoke: async (params, context) => {
     console.log('Starting AWS Remove from Identity Center Group action');
 
@@ -116,16 +128,16 @@ export default {
 
       console.log(`Processing user: ${userName} for group: ${groupId}`);
 
-      if (!context.secrets?.AWS_ACCESS_KEY_ID || !context.secrets?.AWS_SECRET_ACCESS_KEY) {
-        throw new FatalError('Missing required AWS credentials in secrets');
+      if (!context.secrets?.BASIC_USERNAME || !context.secrets?.BASIC_PASSWORD) {
+        throw new FatalError('Missing required credentials in secrets');
       }
 
       // Create AWS Identity Store client
       const client = new IdentitystoreClient({
         region: region,
         credentials: {
-          accessKeyId: context.secrets.AWS_ACCESS_KEY_ID,
-          secretAccessKey: context.secrets.AWS_SECRET_ACCESS_KEY
+          accessKeyId: context.secrets.BASIC_USERNAME,
+          secretAccessKey: context.secrets.BASIC_PASSWORD
         }
       });
 
@@ -165,6 +177,12 @@ export default {
     }
   },
 
+  /**
+   * Error recovery handler - handles retryable errors
+   * @param {Object} params - Original params plus error information
+   * @param {Object} context - Execution context
+   * @returns {Object} Recovery results
+   */
   error: async (params, _context) => {
     const { error } = params;
     console.error(`Error handler invoked: ${error?.message}`);
@@ -173,6 +191,12 @@ export default {
     throw error;
   },
 
+  /**
+   * Graceful shutdown handler - performs cleanup
+   * @param {Object} params - Original params plus halt reason
+   * @param {Object} context - Execution context
+   * @returns {Object} Cleanup results
+   */
   halt: async (params, _context) => {
     const { reason, userName, groupId } = params;
     console.log(`Job is being halted (${reason})`);
