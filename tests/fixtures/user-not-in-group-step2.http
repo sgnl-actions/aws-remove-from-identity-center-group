@@ -1,0 +1,8 @@
+HTTP/1.1 400 Bad Request
+connection: close
+content-length: 191
+content-type: application/x-amz-json-1.1
+date: Mon, 02 Mar 2026 20:12:33 GMT
+x-amzn-requestid: 81053a4b-7737-430f-9a52-552f9a4690c0
+
+{"__type":"ResourceNotFoundException","Message":"Group membership not found for given Pool/Group/Member.","RequestId":"81053a4b-7737-430f-9a52-552f9a4690c0","ResourceType":"GROUP_MEMBERSHIP"}
