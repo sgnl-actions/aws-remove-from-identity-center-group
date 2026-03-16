@@ -2,10 +2,10 @@ import {
   IdentitystoreClient,
   GetUserIdCommand,
   GetGroupMembershipIdCommand,
-  DeleteGroupMembershipCommand,
-} from "@aws-sdk/client-identitystore";
-import { getAwsCredentials } from "./auth.mjs";
-import { randomUUID } from "node:crypto";
+  DeleteGroupMembershipCommand
+} from '@aws-sdk/client-identitystore';
+import { getAwsCredentials } from './auth.mjs';
+import { randomUUID } from 'node:crypto';
 
 class RetryableError extends Error {
   constructor(message) {
@@ -26,29 +26,29 @@ async function getUserIdFromUsername(client, identityStoreId, userName) {
     IdentityStoreId: identityStoreId,
     AlternateIdentifier: {
       UniqueAttribute: {
-        AttributePath: "userName",
-        AttributeValue: userName,
-      },
-    },
+        AttributePath: 'userName',
+        AttributeValue: userName
+      }
+    }
   });
 
   try {
     const response = await client.send(command);
     return response.UserId;
   } catch (error) {
-    if (error.name === "ResourceNotFoundException") {
+    if (error.name === 'ResourceNotFoundException') {
       throw new FatalError(`User not found: ${userName}`);
     }
     if (
-      error.name === "ThrottlingException" ||
-      error.name === "ServiceUnavailableException"
+      error.name === 'ThrottlingException' ||
+      error.name === 'ServiceUnavailableException'
     ) {
       throw new RetryableError(
-        `AWS service temporarily unavailable: ${error.message}`,
+        `AWS service temporarily unavailable: ${error.message}`
       );
     }
     throw new FatalError(
-      `Failed to get user ID for ${userName}: ${error.message}`,
+      `Failed to get user ID for ${userName}: ${error.message}`
     );
   }
 }
@@ -59,8 +59,8 @@ async function removeUserFromGroup(client, identityStoreId, groupId, userId) {
     IdentityStoreId: identityStoreId,
     GroupId: groupId,
     MemberId: {
-      UserId: userId,
-    },
+      UserId: userId
+    }
   });
 
   let membershipId;
@@ -68,17 +68,17 @@ async function removeUserFromGroup(client, identityStoreId, groupId, userId) {
     const membershipResponse = await client.send(getMembershipCommand);
     membershipId = membershipResponse.MembershipId;
   } catch (error) {
-    if (error.name === "ResourceNotFoundException") {
+    if (error.name === 'ResourceNotFoundException') {
       // User is not in the group
-      console.log("User is not a member of the group");
+      console.log('User is not a member of the group');
       return false;
     }
     if (
-      error.name === "ThrottlingException" ||
-      error.name === "ServiceUnavailableException"
+      error.name === 'ThrottlingException' ||
+      error.name === 'ServiceUnavailableException'
     ) {
       throw new RetryableError(
-        `AWS service temporarily unavailable: ${error.message}`,
+        `AWS service temporarily unavailable: ${error.message}`
       );
     }
     throw new FatalError(`Failed to get membership ID: ${error.message}`);
@@ -87,24 +87,24 @@ async function removeUserFromGroup(client, identityStoreId, groupId, userId) {
   // Now delete the membership
   const deleteCommand = new DeleteGroupMembershipCommand({
     IdentityStoreId: identityStoreId,
-    MembershipId: membershipId,
+    MembershipId: membershipId
   });
 
   try {
     await client.send(deleteCommand);
     return true;
   } catch (error) {
-    if (error.name === "ResourceNotFoundException") {
+    if (error.name === 'ResourceNotFoundException') {
       // Membership already deleted
-      console.log("Membership already deleted");
+      console.log('Membership already deleted');
       return false;
     }
     if (
-      error.name === "ThrottlingException" ||
-      error.name === "ServiceUnavailableException"
+      error.name === 'ThrottlingException' ||
+      error.name === 'ServiceUnavailableException'
     ) {
       throw new RetryableError(
-        `AWS service temporarily unavailable: ${error.message}`,
+        `AWS service temporarily unavailable: ${error.message}`
       );
     }
     throw new FatalError(`Failed to remove user from group: ${error.message}`);
@@ -114,40 +114,40 @@ async function removeUserFromGroup(client, identityStoreId, groupId, userId) {
 function validateInputs(params) {
   if (
     !params.userName ||
-    typeof params.userName !== "string" ||
-    params.userName.trim() === ""
+    typeof params.userName !== 'string' ||
+    params.userName.trim() === ''
   ) {
-    throw new FatalError("Invalid or missing userName parameter");
+    throw new FatalError('Invalid or missing userName parameter');
   }
 
   if (
     !params.identityStoreId ||
-    typeof params.identityStoreId !== "string" ||
-    params.identityStoreId.trim() === ""
+    typeof params.identityStoreId !== 'string' ||
+    params.identityStoreId.trim() === ''
   ) {
-    throw new FatalError("Invalid or missing identityStoreId parameter");
+    throw new FatalError('Invalid or missing identityStoreId parameter');
   }
 
   if (
     !params.groupId ||
-    typeof params.groupId !== "string" ||
-    params.groupId.trim() === ""
+    typeof params.groupId !== 'string' ||
+    params.groupId.trim() === ''
   ) {
-    throw new FatalError("Invalid or missing groupId parameter");
+    throw new FatalError('Invalid or missing groupId parameter');
   }
 
   if (
     !params.region ||
-    typeof params.region !== "string" ||
-    params.region.trim() === ""
+    typeof params.region !== 'string' ||
+    params.region.trim() === ''
   ) {
-    throw new FatalError("Invalid or missing region parameter");
+    throw new FatalError('Invalid or missing region parameter');
   }
 }
 
 function hasBasicAuth(context) {
   return Boolean(
-    context.secrets?.BASIC_USERNAME && context.secrets?.BASIC_PASSWORD,
+    context.secrets?.BASIC_USERNAME && context.secrets?.BASIC_PASSWORD
   );
 }
 
@@ -155,14 +155,14 @@ function hasOAuth2ClientCredentials(context) {
   return Boolean(
     context.environment?.OAUTH2_CLIENT_CREDENTIALS_CLIENT_ID &&
     context.environment?.OAUTH2_CLIENT_CREDENTIALS_TOKEN_URL &&
-    context.secrets?.OAUTH2_CLIENT_CREDENTIALS_CLIENT_SECRET,
+    context.secrets?.OAUTH2_CLIENT_CREDENTIALS_CLIENT_SECRET
   );
 }
 
 function hasAwsAssumeRoleWebIdentityConfig(context) {
   return Boolean(
     context.environment?.AWS_ASSUME_ROLE_WEB_IDENTITY_REGION &&
-    context.environment?.AWS_ASSUME_ROLE_WEB_IDENTITY_ROLE_ARN,
+    context.environment?.AWS_ASSUME_ROLE_WEB_IDENTITY_ROLE_ARN
   );
 }
 
@@ -171,15 +171,15 @@ function buildAwsCredentialsParams(context) {
     return {
       basic: {
         username: context.secrets.BASIC_USERNAME,
-        password: context.secrets.BASIC_PASSWORD,
-      },
+        password: context.secrets.BASIC_PASSWORD
+      }
     };
   }
 
   if (hasOAuth2ClientCredentials(context)) {
     if (!hasAwsAssumeRoleWebIdentityConfig(context)) {
       throw new FatalError(
-        "OAuth2ClientCredentials missing required AwsAssumeRoleWebIdentity configuration",
+        'OAuth2ClientCredentials missing required AwsAssumeRoleWebIdentity configuration'
       );
     }
 
@@ -199,14 +199,14 @@ function buildAwsCredentialsParams(context) {
             `sgnl-action-${randomUUID()}`,
           sessionDuration:
             context.environment
-              .AWS_ASSUME_ROLE_WEB_IDENTITY_SESSION_DURATION_SECONDS,
-        },
-      },
+              .AWS_ASSUME_ROLE_WEB_IDENTITY_SESSION_DURATION_SECONDS
+        }
+      }
     };
   }
 
   throw new FatalError(
-    "unsupported auth type: expected Basic or OAuth2ClientCredentials with AwsAssumeRoleWebIdentity",
+    'unsupported auth type: expected Basic or OAuth2ClientCredentials with AwsAssumeRoleWebIdentity'
   );
 }
 
@@ -234,7 +234,7 @@ export default {
    * @returns {Object} Removal results
    */
   invoke: async (params, context) => {
-    console.log("Starting AWS Remove from Identity Center Group action");
+    console.log('Starting AWS Remove from Identity Center Group action');
 
     try {
       validateInputs(params);
@@ -248,7 +248,7 @@ export default {
       // Create AWS Identity Store client
       const client = new IdentitystoreClient({
         region: region,
-        credentials: await getAwsCredentials(awsCredentialsParams),
+        credentials: await getAwsCredentials(awsCredentialsParams)
       });
 
       // Get user ID from username
@@ -256,7 +256,7 @@ export default {
       const userId = await getUserIdFromUsername(
         client,
         identityStoreId,
-        userName,
+        userName
       );
       console.log(`Resolved user ID: ${userId}`);
 
@@ -266,14 +266,14 @@ export default {
         client,
         identityStoreId,
         groupId,
-        userId,
+        userId
       );
 
       if (!removed) {
         console.log(`User ${userName} was not a member of group ${groupId}`);
       } else {
         console.log(
-          `Successfully removed user ${userName} from group ${groupId}`,
+          `Successfully removed user ${userName} from group ${groupId}`
         );
       }
 
@@ -282,7 +282,7 @@ export default {
         groupId,
         userId,
         removed,
-        removedAt: new Date().toISOString(),
+        removedAt: new Date().toISOString()
       };
     } catch (error) {
       console.error(`Error removing user from group: ${error.message}`);
@@ -320,11 +320,11 @@ export default {
     console.log(`Job is being halted (${reason})`);
 
     return {
-      userName: userName || "unknown",
-      groupId: groupId || "unknown",
-      reason: reason || "unknown",
+      userName: userName || 'unknown',
+      groupId: groupId || 'unknown',
+      reason: reason || 'unknown',
       haltedAt: new Date().toISOString(),
-      cleanupCompleted: true,
+      cleanupCompleted: true
     };
-  },
+  }
 };
