@@ -80,3 +80,147 @@ scenarios:
     fixture: fixtures/invalid-credentials.http
     invoke:
       throws: "Failed to get user ID for test-user-1: The security token included in the request is invalid."
+  - name: Base Success Case (AWS Assume Role with Web Identity)
+    context:
+      secrets:
+        BASIC_USERNAME: ''
+        BASIC_PASSWORD: ''
+        OAUTH2_CLIENT_CREDENTIALS_CLIENT_SECRET: valid-client-secret
+      environment:
+        OAUTH2_CLIENT_CREDENTIALS_TOKEN_URL: 'https://login.microsoftonline.com/someTenant/oauth2/v2.0/token'
+        OAUTH2_CLIENT_CREDENTIALS_CLIENT_ID: 'someClientId'
+        OAUTH2_CLIENT_CREDENTIALS_SCOPE: 'api://aud/.default'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_REGION: 'us-east-2'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_ROLE_ARN: 'arn:aws:iam::1234567890:role/test-role-azure'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_SESSION_NAME: 'test-session'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_SESSION_DURATION_SECONDS: 900
+    steps:
+      - request:
+          method: POST
+          url: 'https://login.microsoftonline.com/someTenant/oauth2/v2.0/token'
+        fixture: fixtures/web-identity-token-endpoint.http
+      - request:
+          method: POST
+          url: https://sts.us-east-2.amazonaws.com/
+        fixture: fixtures/web-identity-assume-role.http
+      - request:
+          method: POST
+          url: https://identitystore.us-east-2.amazonaws.com/
+        fixture: fixtures/base-success-case-step1.http
+      - request:
+          method: POST
+          url: https://identitystore.us-east-2.amazonaws.com/
+        fixture: fixtures/base-success-case-step2.http
+      - request:
+          method: POST
+          url: https://identitystore.us-east-2.amazonaws.com/
+        fixture: fixtures/base-success-case-step3.http
+    invoke:
+      returns:
+        userName: test-user-1
+        groupId: 910b05d1-11f1-71ea-8ced-62ab45188f93
+        userId: 61eb35b0-f0c1-709d-750e-93b3da2e4a2d
+        removed: true
+  - name: Invalid Credentials (AWS Assume Role with Web Identity)
+    context:
+      secrets:
+        BASIC_USERNAME: ''
+        BASIC_PASSWORD: ''
+        OAUTH2_CLIENT_CREDENTIALS_CLIENT_SECRET: invalid-client-secret
+      environment:
+        OAUTH2_CLIENT_CREDENTIALS_TOKEN_URL: 'https://login.microsoftonline.com/someTenant/oauth2/v2.0/token'
+        OAUTH2_CLIENT_CREDENTIALS_CLIENT_ID: 'someClientId'
+        OAUTH2_CLIENT_CREDENTIALS_SCOPE: 'api://aud/.default'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_REGION: 'us-east-2'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_ROLE_ARN: 'arn:aws:iam::1234567890:role/test-role-azure'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_SESSION_NAME: 'test-session'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_SESSION_DURATION_SECONDS: 900
+    steps:
+      - request:
+          method: POST
+          url: 'https://login.microsoftonline.com/someTenant/oauth2/v2.0/token'
+        fixture: fixtures/invalid-credentials-token-endpoint.http
+    invoke:
+      throws: "OAuth2 token request failed: 401 Unauthorized - {\"error\":\"invalid_client\",\"error_description\":\"AADSTS70011: The provided request must include a 'scope' input parameter.\",\"error_codes\":[70011],\"timestamp\":\"2026-03-02 21:23:26Z\",\"trace_id\":\"abc123\",\"correlation_id\":\"def456\"}"
+  - name: Unsupported Auth Type
+    context:
+      secrets:
+        BASIC_USERNAME: ''
+        BASIC_PASSWORD: ''
+      environment: {}
+    steps: []
+    invoke:
+      throws: "unsupported auth type: expected Basic or OAuth2ClientCredentials with AwsAssumeRoleWebIdentity"
+  - name: AWS Assume Role Returns No Credentials
+    context:
+      secrets:
+        BASIC_USERNAME: ''
+        BASIC_PASSWORD: ''
+        OAUTH2_CLIENT_CREDENTIALS_CLIENT_SECRET: valid-client-secret
+      environment:
+        OAUTH2_CLIENT_CREDENTIALS_TOKEN_URL: 'https://login.microsoftonline.com/someTenant/oauth2/v2.0/token'
+        OAUTH2_CLIENT_CREDENTIALS_CLIENT_ID: 'someClientId'
+        OAUTH2_CLIENT_CREDENTIALS_SCOPE: 'api://aud/.default'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_REGION: 'us-east-2'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_ROLE_ARN: 'arn:aws:iam::1234567890:role/test-role-azure'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_SESSION_NAME: 'test-session'
+        AWS_ASSUME_ROLE_WEB_IDENTITY_SESSION_DURATION_SECONDS: 900
+    steps:
+      - request:
+          method: POST
+          url: 'https://login.microsoftonline.com/someTenant/oauth2/v2.0/token'
+        fixture: fixtures/web-identity-token-endpoint.http
+      - request:
+          method: POST
+          url: https://sts.us-east-2.amazonaws.com/
+        fixture: fixtures/web-identity-assume-role-no-credentials.http
+    invoke:
+      throws: "Failed to assume AWS role with web identity"
+  - name: OAuth2 Without AWS Config
+    context:
+      secrets:
+        BASIC_USERNAME: ''
+        BASIC_PASSWORD: ''
+        OAUTH2_CLIENT_CREDENTIALS_CLIENT_SECRET: secret
+      environment:
+        OAUTH2_CLIENT_CREDENTIALS_CLIENT_ID: client-id
+        OAUTH2_CLIENT_CREDENTIALS_TOKEN_URL: 'https://example.com/token'
+    steps: []
+    invoke:
+      throws: "OAuth2ClientCredentials missing required AwsAssumeRoleWebIdentity configuration"
+  - name: Empty String userName
+    params:
+      userName: '   '
+      identityStoreId: d-8b77564492
+      groupId: 910b05d1-11f1-71ea-8ced-62ab45188f93
+      region: us-east-2
+    steps: []
+    invoke:
+      throws: "Invalid or missing userName parameter"
+  - name: Empty String groupId
+    params:
+      userName: test-user-1
+      identityStoreId: d-8b77564492
+      groupId: '   '
+      region: us-east-2
+    steps: []
+    invoke:
+      throws: "Invalid or missing groupId parameter"
+  - name: Empty String identityStoreId
+    params:
+      userName: test-user-1
+      identityStoreId: '   '
+      groupId: 910b05d1-11f1-71ea-8ced-62ab45188f93
+      region: us-east-2
+    steps: []
+    invoke:
+      throws: "Invalid or missing identityStoreId parameter"
+  - name: Empty String region
+    params:
+      userName: test-user-1
+      identityStoreId: d-8b77564492
+      groupId: 910b05d1-11f1-71ea-8ced-62ab45188f93
+      region: '   '
+    steps: []
+    invoke:
+      throws: "Invalid or missing region parameter"
